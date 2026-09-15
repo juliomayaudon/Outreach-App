@@ -55,13 +55,24 @@ hammering:
 
 1. **Push this folder to a GitHub repo.**
 
-2. **New Project → Deploy from GitHub repo.** Railway reads `railway.json` and
-   builds the `Dockerfile` (it builds the React app and the Python API in one
-   image). No build settings to fill in.
+2. **New Project → Deploy from GitHub repo.** Railway detects the `Dockerfile`
+   on its own and builds the React app and the Python API into one image. There
+   are no build settings to fill in.
 
-3. **Add Postgres**: in the project, *New → Database → Add PostgreSQL*. Railway
-   injects `DATABASE_URL` into the app service automatically. If it doesn't,
-   add a variable `DATABASE_URL` with the value `${{Postgres.DATABASE_URL}}`.
+   Note: Railway deprecated Config-as-Code, and services created after
+   2026-08-28 that never used it cannot opt in — so a `railway.json` in the repo
+   is ignored. The start command comes from the `Dockerfile`'s `CMD`; the
+   healthcheck and restart policy have to be set in the UI (steps 5 and 6).
+
+3. **Add Postgres first**: in the project, *New → Database → Add PostgreSQL*.
+   Railway does **not** inject `DATABASE_URL` into the app service for you — on
+   the app service add a variable `DATABASE_URL` with the value
+   `${{Postgres.DATABASE_URL}}`.
+
+   Do this before the app's first successful boot. That reference resolves by
+   service name, so if you set it while no service named `Postgres` exists,
+   Railway stores the literal text and the app dies on import with
+   `sqlalchemy.exc.ArgumentError: Could not parse SQLAlchemy URL`.
 
 4. **Set the variables** (*Variables* tab on the app service). See
    `.env.example` for the full list; the ones you cannot skip:
@@ -77,12 +88,26 @@ hammering:
    everyone is signed out and the stored LinkedIn tokens can no longer be
    decrypted — you would have to paste them again.
 
-5. **Generate a domain** (*Settings → Networking → Generate Domain*), open it,
-   and sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. The admin user is created
-   on the first boot only; after that, change the password from the app and drop
+5. **Set the healthcheck** to `/api/health` in *Settings → Deploy → Healthcheck
+   Path*. Without it Railway marks a deploy successful as soon as the image is
+   built, so a container that crashes on boot still shows green.
+
+6. **Generate a domain** (*Settings → Networking → Generate Domain*) and give it
+   target port **8080** — that is the `PORT` Railway injects at runtime, which
+   is what the `Dockerfile`'s `CMD` binds to. Then open it and sign in with
+   `ADMIN_EMAIL` / `ADMIN_PASSWORD`. The admin user is created on the first boot
+   only; after that, change the password from the app and drop
    `ADMIN_PASSWORD` from the variables.
 
-The healthcheck is `/api/health`. Logs from the worker are prefixed `worker`.
+Logs from the worker are prefixed `worker`.
+
+### When you change a variable
+
+Railway resolves variables when it creates a deployment. *Restart* and
+*Redeploy* both reuse the previous deployment's resolved values, so neither
+picks up a new variable or a reference that only just became resolvable. Edit
+the variable and use the **Deploy** button that appears (*Apply N changes*),
+which builds a genuinely new deployment.
 
 ### Keep it to one replica
 

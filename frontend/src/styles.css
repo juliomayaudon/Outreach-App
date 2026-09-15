@@ -101,7 +101,14 @@ p { margin: 0 0 12px; }
 .nav-link.active { background: var(--series-1-soft); color: var(--series-1); }
 .sidebar-footer { margin-top: auto; border-top: 1px solid var(--border); padding-top: 12px; }
 .sidebar-user { padding: 0 10px 8px; font-size: 12px; color: var(--text-muted); }
-.content { flex: 1; padding: 28px 32px 64px; max-width: 1180px; min-width: 0; }
+.content {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 28px 32px 64px;
+}
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .page-head p { color: var(--text-secondary); margin: 4px 0 0; }
 
@@ -117,7 +124,7 @@ p { margin: 0 0 12px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .card-head p { color: var(--text-secondary); font-size: 13px; margin: 2px 0 0; }
 .grid { display: grid; gap: 16px; }
-.grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 
 /* ------------------------------------------------------------- stat tiles */

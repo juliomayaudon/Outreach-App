@@ -9,3 +9,4 @@ frontend/dist/
 backend/static/
 .DS_Store
 .pytest_cache/
+vite.config.js.timestamp-*

@@ -198,7 +198,10 @@ export default function NewCampaign() {
             <>
               {!sheetConfig.enabled && (
                 <div className="alert alert-warning">
-                  Google Sheets is not configured on the server (GOOGLE_SERVICE_ACCOUNT_JSON).
+                  Google Sheets is not configured on the server: set{' '}
+                  <span className="mono">GOOGLE_SERVICE_ACCOUNT_JSON</span> to the service account
+                  key. Every sheet you use then has to be shared as <strong>Editor</strong> with
+                  that account, because the campaign writes a results column back into it.
                 </div>
               )}
               <div className="field">
@@ -211,8 +214,11 @@ export default function NewCampaign() {
                   required
                 />
                 {sheetConfig.service_account_email && (
-                  <div className="field-hint">
-                    Share it as Editor with <span className="mono">{sheetConfig.service_account_email}</span>
+                  <div className="alert alert-info" style={{ marginTop: 8, marginBottom: 0 }}>
+                    Share the sheet as <strong>Editor</strong> with{' '}
+                    <span className="mono">{sheetConfig.service_account_email}</span>. Without it
+                    Google answers “spreadsheet not found”, and Editor rather than Viewer because
+                    the results column is written back into the sheet.
                   </div>
                 )}
               </div>

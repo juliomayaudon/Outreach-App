@@ -101,6 +101,32 @@ hammering:
 
 Logs from the worker are prefixed `worker`.
 
+### Sign in with Google
+
+Optional, and off until both variables are set. With it on, anyone holding a
+verified address in `GOOGLE_ALLOWED_DOMAIN` gets a **member** account the
+first time they sign in, with nobody approving it. Members only ever see
+their own LinkedIn accounts and campaigns; promoting someone to admin is
+still a deliberate act in *Team*.
+
+1. Google Cloud Console → *APIs & Services → Credentials → Create
+   credentials → OAuth client ID → Web application*.
+2. Under *Authorized redirect URIs* add exactly
+   `https://<your-domain>/api/auth/google/callback`. Google matches this
+   string character for character; a trailing slash or `http` is a mismatch.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on the app service, and
+   `GOOGLE_ALLOWED_DOMAIN` to your Workspace domain.
+
+The domain is enforced on the server against a signature-verified `id_token`,
+not against the `hd` parameter in the URL, which is only a hint to Google's
+account chooser and can be edited by whoever is looking at the address bar.
+An account created this way has no password, so the email form cannot be used
+to reach it.
+
+Password accounts keep working alongside it, which is what the bootstrap
+admin needs: `ADMIN_EMAIL` / `ADMIN_PASSWORD` still creates the first admin on
+an empty database, whether or not Google sign-in is on.
+
 ### When you change a variable
 
 Railway resolves variables when it creates a deployment. *Restart* and
@@ -223,10 +249,11 @@ SQLite works for local development; use Postgres in production (the worker's
 .venv/bin/python -m pytest backend/tests -q
 ```
 
-69 tests covering the LinkedIn client against a mocked transport (endpoint,
+81 tests covering the LinkedIn client against a mocked transport (endpoint,
 payload, cookie/header split, every error class), the CSV and Sheet importers,
 the window and quota arithmetic, the worker's drip behaviour, service account
-key handling against a real generated PEM, and the API including permissions.
+key handling against a real generated PEM, the Google sign-in domain rules,
+and the API including permissions.
 
 ---
 

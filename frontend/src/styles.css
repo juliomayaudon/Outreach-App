@@ -260,6 +260,34 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .login-card { width: 100%; max-width: 360px; }
 .login-card h1 { margin-bottom: 4px; }
 .login-card .muted { margin-bottom: 18px; }
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.btn-google:hover { background: var(--surface-2); text-decoration: none; }
+.or-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.or-rule::before, .or-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
 /* ------------------------------------------------------------------ steps */
 .steps { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }

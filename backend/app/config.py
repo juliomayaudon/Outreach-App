@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import functools
+import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -38,6 +39,18 @@ class Settings(BaseSettings):
     # Paste the whole service-account JSON here (Railway variable).
     google_service_account_json: str = ""
 
+    # --- google sign-in ---------------------------------------------------
+    # From an OAuth client of type "Web application" in Google Cloud.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Only addresses in this Workspace domain may sign in. Empty allows any
+    # Google account, which is almost never what you want here.
+    google_allowed_domain: str = "kalungi.com"
+    # Where Google sends the browser back. Left empty it is derived from
+    # RAILWAY_PUBLIC_DOMAIN, because the scheme behind Railway's proxy cannot
+    # be read off the request reliably and the URI has to match exactly.
+    public_base_url: str = ""
+
     # --- frontend ---------------------------------------------------------
     cors_origins: str = ""
 
@@ -51,6 +64,18 @@ class Settings(BaseSettings):
         if url.startswith("postgresql://"):
             url = "postgresql+psycopg://" + url[len("postgresql://") :]
         return url
+
+    @property
+    def google_enabled(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def base_url(self) -> str:
+        """The app's own public origin, without a trailing slash."""
+        if self.public_base_url:
+            return self.public_base_url.rstrip("/")
+        domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+        return f"https://{domain}" if domain else ""
 
     @property
     def cors_origin_list(self) -> list[str]:

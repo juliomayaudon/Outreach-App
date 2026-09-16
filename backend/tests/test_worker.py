@@ -214,3 +214,51 @@ def test_result_text_for_failures(db, campaign_factory, account):
     invitation.error_code = "RATE_LIMIT"
     invitation.error_message = "slow down"
     assert result_text(invitation).startswith("Not sent (429) - RATE_LIMIT - slow down")
+
+
+# --------------------------------------------------------------------------
+# the singleton lock
+#
+# A deploy overlaps: the outgoing container still holds the advisory lock
+# while the new one boots. The worker used to try once, give up, and stay
+# stopped -- API up, queue frozen, healthcheck still reporting "worker".
+# --------------------------------------------------------------------------
+def test_it_starts_even_while_another_worker_holds_the_lock():
+    worker = worker_with(FakeClient())
+    worker._acquire_singleton_lock = lambda: False
+    try:
+        assert worker.start() is True
+        assert worker.is_running() is True
+    finally:
+        worker.stop()
+
+
+def test_it_retries_the_lock_and_ticks_once_it_wins():
+    import threading
+
+    worker = worker_with(FakeClient())
+    worker.poll_seconds = 0.01
+    attempts = []
+    ticked = threading.Event()
+
+    def lock():
+        attempts.append(1)
+        return len(attempts) >= 3  # blocked twice, then the other one exits
+
+    worker._acquire_singleton_lock = lock
+    worker.tick = lambda *args, **kwargs: ticked.set()
+
+    worker.start()
+    try:
+        assert ticked.wait(timeout=5), "never ticked after the lock was released"
+        assert len(attempts) >= 3
+    finally:
+        worker.stop()
+
+
+def test_a_stopped_worker_is_not_reported_as_running():
+    worker = worker_with(FakeClient())
+    assert worker.is_running() is False
+    worker.start()
+    worker.stop()
+    assert worker.is_running() is False

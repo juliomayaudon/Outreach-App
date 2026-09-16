@@ -16,7 +16,7 @@ from .db import SessionLocal, engine
 from .models import Base, User
 from .routers import accounts, auth, campaigns, stats
 from .security import hash_password
-from .worker import start_worker, stop_worker
+from .worker import start_worker, stop_worker, worker_is_running
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app")
@@ -75,7 +75,8 @@ app.include_router(stats.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "worker": settings.run_worker}
+    # The thread can be absent even with RUN_WORKER on, so report the fact.
+    return {"status": "ok", "worker": worker_is_running()}
 
 
 @app.exception_handler(404)

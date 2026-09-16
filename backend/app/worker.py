@@ -61,11 +61,22 @@ class DripWorker:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock_connection = None
+        self._has_lock = False
 
     # -- lifecycle ---------------------------------------------------------
     def _acquire_singleton_lock(self) -> bool:
-        """Only one worker may run against a database, even with replicas."""
+        """Only one worker may run against a database, even with replicas.
+
+        Attempted on every tick rather than once at startup. During a deploy
+        the outgoing container still holds the lock while the new one boots,
+        so a worker that gave up at that moment stayed stopped until somebody
+        restarted the service by hand -- with the API still up and the queue
+        quietly going nowhere.
+        """
+        if self._has_lock:
+            return True
         if not engine.url.get_backend_name().startswith("postgresql"):
+            self._has_lock = True
             return True
         try:
             connection = engine.raw_connection()
@@ -74,30 +85,52 @@ class DripWorker:
             acquired = bool(cursor.fetchone()[0])
             cursor.close()
             if acquired:
-                self._lock_connection = connection  # hold it for the process lifetime
+                self._lock_connection = connection  # held for the process lifetime
+                self._has_lock = True
             else:
                 connection.close()
             return acquired
         except Exception:  # pragma: no cover - never block boot on this
             logger.exception("Could not take the worker lock, running anyway")
+            self._has_lock = True
             return True
 
     def start(self) -> bool:
-        if not self._acquire_singleton_lock():
-            logger.warning("Another worker already holds the lock; not starting this one.")
-            return False
         self._thread = threading.Thread(target=self._loop, name="drip-worker", daemon=True)
         self._thread.start()
         logger.info("Drip worker started (poll every %ss)", self.poll_seconds)
         return True
 
+    def is_running(self) -> bool:
+        """Whether the thread is actually alive, for the healthcheck to report."""
+        return bool(self._thread and self._thread.is_alive())
+
     def stop(self) -> None:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=5)
+        if self._lock_connection is not None:
+            try:
+                self._lock_connection.close()  # releases the advisory lock
+            except Exception:  # pragma: no cover
+                pass
+            self._lock_connection = None
+        self._has_lock = False
 
     def _loop(self) -> None:
+        standing_by = False
         while not self._stop.wait(self.poll_seconds):
+            if not self._acquire_singleton_lock():
+                if not standing_by:
+                    logger.warning(
+                        "Another worker holds the lock; standing by, retrying every %ss.",
+                        self.poll_seconds,
+                    )
+                    standing_by = True
+                continue
+            if standing_by:
+                logger.info("Took over the worker lock; resuming sends.")
+                standing_by = False
             try:
                 self.tick()
             except Exception:  # pragma: no cover - the loop must never die
@@ -296,10 +329,14 @@ def start_worker() -> DripWorker | None:
     if _worker is not None:
         return _worker
     worker = DripWorker()
-    if worker.start():
-        _worker = worker
-        return worker
-    return None
+    worker.start()
+    _worker = worker
+    return worker
+
+
+def worker_is_running() -> bool:
+    """For /api/health, which used to echo the setting rather than the fact."""
+    return _worker is not None and _worker.is_running()
 
 
 def stop_worker() -> None:

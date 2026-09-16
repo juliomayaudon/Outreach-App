@@ -237,3 +237,10 @@ def test_sheet_campaign_requires_configuration(client, fake_linkedin):
     )
     assert response.status_code == 400
     assert "GOOGLE_SERVICE_ACCOUNT_JSON" in response.json()["detail"]
+
+
+def test_health_reports_whether_the_worker_thread_exists(client):
+    """RUN_WORKER is off in the tests, so this must not claim otherwise."""
+    body = client.get("/api/health").json()
+    assert body["status"] == "ok"
+    assert body["worker"] is False

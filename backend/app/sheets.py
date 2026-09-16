@@ -29,6 +29,37 @@ def sheets_enabled() -> bool:
     return bool(get_settings().google_service_account_json.strip())
 
 
+def credentials_problem() -> str | None:
+    """Why the configured key cannot be used, or None when it looks usable.
+
+    Checked up front so a broken key shows a message the reader can act on,
+    instead of a 500 from deep inside google-auth on the first sheet read.
+    """
+    raw = get_settings().google_service_account_json.strip()
+    if not raw:
+        return None  # not configured at all; a different message covers that
+    try:
+        info = json.loads(raw)
+    except json.JSONDecodeError as error:
+        return (
+            f"GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON: {error}. Paste the whole key "
+            "file Google gave you, opening and closing braces included."
+        )
+    if not isinstance(info, dict) or not info.get("private_key"):
+        return (
+            "GOOGLE_SERVICE_ACCOUNT_JSON does not look like a service account key: "
+            "it has no private_key field."
+        )
+    if "\\n" in info["private_key"]:
+        return (
+            "The private_key in GOOGLE_SERVICE_ACCOUNT_JSON has its newlines escaped twice "
+            "(\\\\n where the key file has \\n), so it cannot be read as a PEM key. Paste the "
+            "downloaded key file verbatim rather than copying the value out of a notebook "
+            "or a shell, which is what doubles the backslashes."
+        )
+    return None
+
+
 def service_account_email() -> str:
     raw = get_settings().google_service_account_json.strip()
     if not raw:
@@ -53,7 +84,14 @@ def _client():
     import gspread
     from google.oauth2.service_account import Credentials
 
-    credentials = Credentials.from_service_account_info(info, scopes=SCOPES)
+    try:
+        credentials = Credentials.from_service_account_info(info, scopes=SCOPES)
+    except ValueError as error:
+        # Most often a PEM that will not parse, which google-auth reports as a
+        # bare ValueError. Left uncaught it surfaces as a 500 with no clue.
+        raise SheetError(
+            credentials_problem() or f"The service account key could not be loaded: {error}"
+        ) from error
     return gspread.authorize(credentials)
 
 

@@ -73,6 +73,7 @@ def sheet_config(_: User = Depends(current_user)):
     return {
         "enabled": sheets.sheets_enabled(),
         "service_account_email": sheets.service_account_email(),
+        "problem": sheets.credentials_problem(),
     }
 
 

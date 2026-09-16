@@ -15,7 +15,7 @@ const FIELDS = [
 export default function NewCampaign() {
   const navigate = useNavigate()
   const [accounts, setAccounts] = useState([])
-  const [sheetConfig, setSheetConfig] = useState({ enabled: false, service_account_email: '' })
+  const [sheetConfig, setSheetConfig] = useState({ enabled: false, service_account_email: '', problem: null })
   const [source, setSource] = useState('csv')
   const [file, setFile] = useState(null)
   const [sheetUrl, setSheetUrl] = useState('')
@@ -204,6 +204,9 @@ export default function NewCampaign() {
                   that account, because the campaign writes a results column back into it.
                 </div>
               )}
+              {sheetConfig.problem && (
+                <div className="alert alert-error">{sheetConfig.problem}</div>
+              )}
               <div className="field">
                 <label htmlFor="url">Spreadsheet URL</label>
                 <input
@@ -213,7 +216,7 @@ export default function NewCampaign() {
                   placeholder="https://docs.google.com/spreadsheets/d/…"
                   required
                 />
-                {sheetConfig.service_account_email && (
+                {sheetConfig.service_account_email && !sheetConfig.problem && (
                   <div className="alert alert-info" style={{ marginTop: 8, marginBottom: 0 }}>
                     Share the sheet as <strong>Editor</strong> with{' '}
                     <span className="mono">{sheetConfig.service_account_email}</span>. Without it

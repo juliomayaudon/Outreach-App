@@ -3,10 +3,13 @@ credentials come from an environment variable instead of being hardcoded)."""
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
 
 from .config import get_settings
+
+logger = logging.getLogger("sheets")
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -50,14 +53,22 @@ def credentials_problem() -> str | None:
             "GOOGLE_SERVICE_ACCOUNT_JSON does not look like a service account key: "
             "it has no private_key field."
         )
-    if "\\n" in info["private_key"]:
-        return (
-            "The private_key in GOOGLE_SERVICE_ACCOUNT_JSON has its newlines escaped twice "
-            "(\\\\n where the key file has \\n), so it cannot be read as a PEM key. Paste the "
-            "downloaded key file verbatim rather than copying the value out of a notebook "
-            "or a shell, which is what doubles the backslashes."
-        )
     return None
+
+
+def _repaired(info: dict) -> dict:
+    """Undo newlines that were escaped twice on the way into the variable.
+
+    Pasting a key through a notebook, a shell or a CI form turns the JSON
+    escape \n into a literal backslash followed by n, and google-auth then
+    cannot read the value as PEM. A correctly pasted key contains no
+    backslashes in private_key at all, so this is a no-op for one.
+    """
+    key = info.get("private_key")
+    if isinstance(key, str) and "\\n" in key:
+        logger.info("Repaired double-escaped newlines in the service account private_key.")
+        return {**info, "private_key": key.replace("\\n", "\n")}
+    return info
 
 
 def service_account_email() -> str:
@@ -85,7 +96,7 @@ def _client():
     from google.oauth2.service_account import Credentials
 
     try:
-        credentials = Credentials.from_service_account_info(info, scopes=SCOPES)
+        credentials = Credentials.from_service_account_info(_repaired(info), scopes=SCOPES)
     except ValueError as error:
         # Most often a PEM that will not parse, which google-auth reports as a
         # bare ValueError. Left uncaught it surfaces as a 500 with no clue.

@@ -223,7 +223,7 @@ SQLite works for local development; use Postgres in production (the worker's
 .venv/bin/python -m pytest backend/tests -q
 ```
 
-65 tests covering the LinkedIn client against a mocked transport (endpoint,
+69 tests covering the LinkedIn client against a mocked transport (endpoint,
 payload, cookie/header split, every error class), the CSV and Sheet importers,
 the window and quota arithmetic, the worker's drip behaviour, service account
 key handling against a real generated PEM, and the API including permissions.

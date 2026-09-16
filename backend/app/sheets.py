@@ -166,17 +166,27 @@ def write_results(url: str, tab: str, result_column: str, updates: list[tuple[in
     import gspread
 
     worksheet = _open_worksheet(url, tab)
-    header = worksheet.row_values(1)
-    header = [str(h).strip() for h in header]
-    if result_column in header:
-        column_index = header.index(result_column) + 1
-    else:
-        column_index = len(header) + 1
-        worksheet.update_cell(1, column_index, result_column)
-
-    cells = [gspread.Cell(row, column_index, value) for row, value in updates]
+    header = [str(h).strip() for h in worksheet.row_values(1)]
     try:
-        worksheet.update_cells(cells)
+        if result_column in header:
+            column_index = header.index(result_column) + 1
+        else:
+            column_index = len(header) + 1
+            # A sheet only accepts writes inside its existing grid. On a tab
+            # whose columns are all used the new results column falls outside
+            # it, and Google answers "exceeds grid limits" on every attempt,
+            # forever, because nothing about the next try is different.
+            if column_index > worksheet.col_count:
+                worksheet.add_cols(column_index - worksheet.col_count)
+            worksheet.update_cell(1, column_index, result_column)
+
+        highest_row = max(row for row, _ in updates)
+        if highest_row > worksheet.row_count:
+            worksheet.add_rows(highest_row - worksheet.row_count)
+
+        worksheet.update_cells(
+            [gspread.Cell(row, column_index, value) for row, value in updates]
+        )
     except gspread.exceptions.APIError as error:
         raise SheetError(f"Could not write the results back: {error}") from error
-    return len(cells)
+    return len(updates)
